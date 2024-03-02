@@ -3,75 +3,85 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/smtp"
-
-	"github.com/rs/cors"
 )
 
-// EmailData struct holds the structure of email data
-type EmailData struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Message string `json:"message"`
+// SMTP configuration including recipient address
+var smtpConfig = map[string]string{
+	"host":      "smtp.gmail.com",
+	"port":      "587",
+	"user":      "user@yourpool.org",
+	"password":  "password",
+	"toAddress": "info@yourpool.org",
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
+}
+
+func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Daten aus dem Request lesen
+	var requestData map[string]string
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&requestData)
+	if err != nil {
+		http.Error(w, "Error decoding request data", http.StatusBadRequest)
+		return
+	}
+
+	// Set the recipient address from SMTP configuration
+	toAddress := smtpConfig["toAddress"]
+	fromAddress := smtpConfig["user"] // use SMTP user as sender address
+	subject := requestData["subject"]
+	body := requestData["body"]
+
+	// Hier die E-Mail senden
+	err = sendEmail(toAddress, fromAddress, subject, body)
+	if err != nil {
+		http.Error(w, "Error sending email", http.StatusInternalServerError)
+		return
+	}
+
+	// Erfolgreiche Antwort an den Client senden
+	response := map[string]string{"message": fmt.Sprintf("E-Mail erfolgreich gesendet an %s mit Betreff '%s'", toAddress, subject)}
+	jsonResponse, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, "Error encoding response data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonResponse)
+}
+
+func sendEmail(toAddress, fromAddress, subject, body string) error {
+	auth := smtp.PlainAuth("", smtpConfig["user"], smtpConfig["password"], smtpConfig["host"])
+	smtpAddr := smtpConfig["host"] + ":" + smtpConfig["port"]
+
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n", fromAddress, toAddress, subject, body)
+
+	return smtp.SendMail(smtpAddr, auth, fromAddress, []string{toAddress}, []byte(msg))
 }
 
 func main() {
 	http.HandleFunc("/send-email", sendEmailHandler)
 
-	// Use the Cors module for CORS support
-	handler := cors.Default().Handler(http.DefaultServeMux)
-
-	port := 3000
-	fmt.Printf("Server is running on :%d\n", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), handler))
-}
-
-func sendEmailHandler(w http.ResponseWriter, r *http.Request) {
-	// Allow only POST requests
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var emailData EmailData
-	err := json.NewDecoder(r.Body).Decode(&emailData)
-	if err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
-	// You need to adjust the SMTP settings here
-	smtpHost := "your_smtp_server"
-	smtpPort := 587
-	smtpUsername := "your_username"
-	smtpPassword := "your_password"
-
-	auth := smtp.PlainAuth("", smtpUsername, smtpPassword, smtpHost)
-
-	// Prepare email content
-	message := []byte(
-		fmt.Sprintf("To: %s\r\n"+
-			"Subject: %s\r\n"+
-			"\r\n"+
-			"%s\r\n", emailData.To, emailData.Subject, emailData.Message),
-	)
-
-	err = smtp.SendMail(
-		fmt.Sprintf("%s:%d", smtpHost, smtpPort),
-		auth,
-		smtpUsername,
-		[]string{emailData.To},
-		message,
-	)
-	if err != nil {
-		log.Printf("Error sending email: %v\n", err)
-		http.Error(w, "Error sending email", http.StatusInternalServerError)
-		return
-	}
-
-	fmt.Println("Email sent successfully.")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Email sent successfully"))
+	fmt.Println("Server gestartet auf http://localhost:3000")
+	http.ListenAndServe(":3000", nil)
 }
