@@ -26,10 +26,11 @@ Make sure you have the following installed:
 
     ```go
     // Update these SMTP settings with your own
-    smtpHost := "your_smtp_server"
-    smtpPort := 587
-    smtpUsername := "your_username"
-    smtpPassword := "your_password"
+	"host":      "smtp.gmail.com",
+	"port":      "587",
+	"user":      "user@yourpool.org",
+	"password":  "password",
+	"toAddress": "info@yourpool.org",
     ```
 
 ### Usage
