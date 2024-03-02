@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Email</title>
+</head>
+
+<body>
+
+    <h1>Send Email</h1>
+
+    <form id="emailForm">
+        <label for="to">Recipient:</label>
+        <input type="email" id="to" name="to" required><br>
+
+        <label for="subject">Subject:</label>
+        <input type="text" id="subject" name="subject" required><br>
+
+        <label for="message">Message:</label><br>
+        <textarea id="message" name="message" rows="4" required></textarea><br>
+
+        <button type="button" onclick="sendEmail()">Send Email</button>
+    </form>
+
+    <script>
+        function sendEmail() {
+            var to = document.getElementById("to").value;
+            var subject = document.getElementById("subject").value;
+            var message = document.getElementById("message").value;
+
+            // Prepare JSON data
+            var jsonData = JSON.stringify({
+                to: to,
+                subject: subject,
+                message: message
+            });
+
+            // Send AJAX request to the Golang server
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "http://localhost:3000/send-email", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    alert("Email sent successfully!");
+                } else if (xhr.readyState === 4 && xhr.status !== 200) {
+                    alert("Error sending email.");
+                }
+            };
+
+            xhr.send(jsonData);
+        }
+    </script>
+
+</body>
+
+</html>
